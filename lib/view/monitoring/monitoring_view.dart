@@ -55,7 +55,8 @@ class _MonitoringViewState extends State<MonitoringView> with SingleTickerProvid
     return Scaffold(
       appBar: AppBar(
         title: const Text('Monitoring Alat'),
-        backgroundColor: Colors.green.shade700,
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
         centerTitle: true,
         elevation: 1,
       ),

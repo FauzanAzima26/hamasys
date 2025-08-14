@@ -161,7 +161,8 @@ class _DataHamaViewState extends State<DataHamaView> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Log Monitoring Hama Real-Time'),
-        backgroundColor: Colors.green.shade700,
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
         centerTitle: true,
         elevation: 3,
         actions: [

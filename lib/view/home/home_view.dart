@@ -111,7 +111,7 @@ class _HomeViewState extends State<HomeView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Monitoring Hama Burun',
+                  'Monitoring Hama Burung',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,

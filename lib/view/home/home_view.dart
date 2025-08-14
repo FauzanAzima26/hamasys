@@ -18,7 +18,7 @@ class _HomeViewState extends State<HomeView> {
   double? lat;
   double? lon;
 
-  final String apiKey = 'ed1aaf6c592a4f2d85141723251108'; 
+  final String apiKey = 'ed1aaf6c592a4f2d85141723251108';
 
   @override
   void initState() {
@@ -75,7 +75,8 @@ class _HomeViewState extends State<HomeView> {
         var data = jsonDecode(response.body);
 
         setState(() {
-          lokasi = "${data['location']?['name'] ?? '-'}, ${data['location']?['region'] ?? '-'}";
+          lokasi =
+              "${data['location']?['name'] ?? '-'}, ${data['location']?['region'] ?? '-'}";
           cuaca = data['current']?['condition']?['text'] ?? '-';
           suhu = '${data['current']?['temp_c'] ?? '-'}°C';
         });
@@ -110,7 +111,7 @@ class _HomeViewState extends State<HomeView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Monitoring Hama Burung',
+                  'Monitoring Hama Burun',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -160,13 +161,20 @@ class _HomeViewState extends State<HomeView> {
                 const SizedBox(height: 20),
 
                 // Cuaca Card
-                _infoCard(Icons.wb_sunny, 'Cuaca', cuaca, iconColor: Colors.orange),
+                _infoCard(
+                  Icons.wb_sunny,
+                  'Cuaca',
+                  cuaca,
+                  iconColor: Colors.orange,
+                ),
 
                 const SizedBox(height: 20),
 
                 // Tentang Aplikasi
                 Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   color: Colors.white.withOpacity(0.85),
                   elevation: 4,
                   child: Padding(
@@ -176,29 +184,45 @@ class _HomeViewState extends State<HomeView> {
                       children: [
                         const Text(
                           "Tentang Aplikasi",
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           "Aplikasi ini memantau cuaca, suhu, lokasi, dan status "
                           "sistem pengusir hama burung secara real-time. Pastikan "
                           "GPS aktif agar data lokasi akurat.",
-                          style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[800],
+                          ),
                         ),
                         const SizedBox(height: 12),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                           onPressed: () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => const EducationView()),
+                              MaterialPageRoute(
+                                builder: (context) => const EducationView(),
+                              ),
                             );
                           },
-                          icon: const Icon(Icons.info_outline, color: Colors.white),
-                          label: const Text("Pelajari Selengkapnya", style: TextStyle(color: Colors.white)),
+                          icon: const Icon(
+                            Icons.info_outline,
+                            color: Colors.white,
+                          ),
+                          label: const Text(
+                            "Pelajari Selengkapnya",
+                            style: TextStyle(color: Colors.white),
+                          ),
                         ),
                       ],
                     ),
@@ -209,19 +233,28 @@ class _HomeViewState extends State<HomeView> {
 
                 // Tips Pencegahan Hama Burung
                 Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   color: Colors.white.withOpacity(0.85),
                   elevation: 4,
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        const Icon(Icons.lightbulb_outline, color: Colors.orange, size: 28),
+                        const Icon(
+                          Icons.lightbulb_outline,
+                          color: Colors.orange,
+                          size: 28,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             "Pasang alat pengusir di area rawan hama burung dan gunakan suara frekuensi tinggi yang tidak mengganggu manusia.",
-                            style: TextStyle(fontSize: 14, color: Colors.grey[800]),
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[800],
+                            ),
                           ),
                         ),
                       ],
@@ -250,11 +283,18 @@ class _HomeViewState extends State<HomeView> {
         children: [
           Icon(icon, size: 22, color: color),
           const SizedBox(height: 4),
-          Text(title, style: const TextStyle(fontSize: 11, color: Colors.white70)),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 11, color: Colors.white70),
+          ),
           const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -262,7 +302,12 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  Widget _infoCard(IconData icon, String title, String subtitle, {Color iconColor = Colors.green}) {
+  Widget _infoCard(
+    IconData icon,
+    String title,
+    String subtitle, {
+    Color iconColor = Colors.green,
+  }) {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       color: Colors.white.withOpacity(0.85),

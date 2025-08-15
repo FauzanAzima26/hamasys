@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../home/home_view.dart';
 import '../monitoring/monitoring_view.dart';
-import '../data_hama/data_hama_view.dart';
 import '../education/education_view.dart';
 
 class MainNavigationView extends StatefulWidget {
@@ -17,7 +16,6 @@ class _MainNavigationViewState extends State<MainNavigationView> {
   final List<Widget> _pages = const [
     HomeView(),
     MonitoringView(),
-    DataHamaView(),
     EducationView(),
   ];
 
@@ -74,11 +72,7 @@ class _MainNavigationViewState extends State<MainNavigationView> {
                 activeIcon: Icon(Icons.wifi_tethering_rounded),
                 label: 'Monitoring',
               ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.bug_report_outlined),
-                activeIcon: Icon(Icons.bug_report),
-                label: 'Data Hama',
-              ),
+            
               BottomNavigationBarItem(
                 icon: Icon(Icons.cast_for_education_outlined),
                 activeIcon: Icon(Icons.cast_for_education),

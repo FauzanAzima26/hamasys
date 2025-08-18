@@ -27,6 +27,8 @@ class _MonitoringViewState extends State<MonitoringView>
   String get readUrl =>
       "https://api.thingspeak.com/channels/$channelId/feeds.json?api_key=$readApiKey&results=5";
 
+  String get updateUrl => "https://api.thingspeak.com/update";
+
   @override
   void initState() {
     super.initState();
@@ -47,7 +49,8 @@ class _MonitoringViewState extends State<MonitoringView>
     fetchThingSpeakData();
   }
 
-  void toggleAlat(bool value) {
+  /// Kirim perintah ON/OFF ke ThingSpeak
+  Future<void> toggleAlat(bool value) async {
     setState(() {
       alatHidup = value;
       if (alatHidup) {
@@ -56,6 +59,20 @@ class _MonitoringViewState extends State<MonitoringView>
         _animationController.reverse();
       }
     });
+
+    // Kirim update ke ThingSpeak
+    try {
+      final url = "$updateUrl?api_key=$writeApiKey&field2=${alatHidup ? 1 : 0}";
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        debugPrint("✅ Status alat diubah ke: ${alatHidup ? 'ON' : 'OFF'}");
+      } else {
+        debugPrint("❌ Gagal ubah status alat: ${response.statusCode}");
+      }
+    } catch (e) {
+      debugPrint("⚠ Error kirim status alat: $e");
+    }
   }
 
   void bunyikanSuara() {
@@ -91,8 +108,6 @@ class _MonitoringViewState extends State<MonitoringView>
   }
 
   Future<void> resetThingSpeakData() async {
-    const String updateUrl = "https://api.thingspeak.com/update";
-
     try {
       final response = await http.get(
         Uri.parse('$updateUrl?api_key=$writeApiKey&field1=0&field5=0'),
@@ -106,7 +121,9 @@ class _MonitoringViewState extends State<MonitoringView>
           fetchThingSpeakData();
         }
       } else {
-        debugPrint("❌ Gagal reset data: ${response.statusCode} - ${response.body}");
+        debugPrint(
+          "❌ Gagal reset data: ${response.statusCode} - ${response.body}",
+        );
       }
     } catch (e) {
       debugPrint("⚠ Error saat reset data: $e");
@@ -119,9 +136,7 @@ class _MonitoringViewState extends State<MonitoringView>
       builder: (ctx) {
         return AlertDialog(
           title: const Text("Konfirmasi Reset"),
-          content: const Text(
-            "Apakah Anda yakin ingin mereset data?",
-          ),
+          content: const Text("Apakah Anda yakin ingin mereset data?"),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -187,7 +202,7 @@ class _MonitoringViewState extends State<MonitoringView>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Monitoring Alat & Log Hama'),
-        foregroundColor: Colors.white, 
+        foregroundColor: Colors.white,
         backgroundColor: const Color.fromARGB(255, 77, 212, 84),
         centerTitle: true,
         elevation: 3,
@@ -202,41 +217,64 @@ class _MonitoringViewState extends State<MonitoringView>
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Bagian Monitoring
+          // Bagian Tombol On/Off IoT
           AnimatedBuilder(
             animation: _colorAnimation,
-            builder: (context, child) => Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _colorAnimation.value?.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Alat ${alatHidup ? "Hidup" : "Mati"}',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: alatHidup ? Colors.green : Colors.red.shade700,
+            builder: (context, child) {
+              return GestureDetector(
+                onTapDown: (_) => _animationController.forward(),
+                onTapUp: (_) => toggleAlat(!alatHidup),
+                onTapCancel: () => _animationController.reverse(),
+                child: AnimatedScale(
+                  scale: alatHidup
+                      ? 1.0
+                      : 1.0, // bisa diubah kalau mau efek tekan
+                  duration: const Duration(milliseconds: 100),
+                  child: Container(
+                    width: 120,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [
+                          _colorAnimation.value!.withOpacity(0.9),
+                          _colorAnimation.value!,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        // Bayangan terang (atas kiri)
+                        BoxShadow(
+                          color: Colors.white.withOpacity(0.7),
+                          offset: const Offset(-6, -6),
+                          blurRadius: 8,
+                        ),
+                        // Bayangan gelap (bawah kanan)
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          offset: const Offset(6, 6),
+                          blurRadius: 8,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.power_settings_new,
+                      color: Colors.white,
+                      size: 50,
                     ),
                   ),
-                  Switch(
-                    value: alatHidup,
-                    activeColor: Colors.green,
-                    inactiveThumbColor: Colors.red.shade700,
-                    onChanged: toggleAlat,
-                  ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 16),
+
+          // Tombol bunyikan suara
           ElevatedButton(
             onPressed: alatHidup ? bunyikanSuara : null,
             style: ElevatedButton.styleFrom(
-              foregroundColor: Colors.white, 
+              foregroundColor: Colors.white,
               backgroundColor: const Color.fromARGB(255, 77, 212, 84),
               padding: const EdgeInsets.symmetric(vertical: 16),
               disabledBackgroundColor: Colors.grey.shade400,
@@ -248,7 +286,7 @@ class _MonitoringViewState extends State<MonitoringView>
           ),
           const Divider(height: 32, thickness: 2),
 
-          // Bagian Log Hama
+          // Bagian Log
           const Text(
             "Log Monitoring Hama Real-Time",
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -265,8 +303,9 @@ class _MonitoringViewState extends State<MonitoringView>
                   ),
                 )
               : Column(
-                  children:
-                      _logMessages.map((log) => _buildLogItem(log)).toList(),
+                  children: _logMessages
+                      .map((log) => _buildLogItem(log))
+                      .toList(),
                 ),
         ],
       ),

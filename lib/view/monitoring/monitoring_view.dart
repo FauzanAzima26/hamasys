@@ -36,21 +36,18 @@ class _MonitoringViewState extends State<MonitoringView>
       end: Colors.green.shade600,
     ).animate(_animationController);
 
-    // MQTT Service
+    // Inisialisasi MQTT
     _mqttService = MqttService();
     _mqttService.onMessageReceived = (data) {
       setState(() {
-        String time = DateTime.fromMillisecondsSinceEpoch(
-          (data['timestamp'] * 1000).toInt(),
-        ).toString();
         List objects = data['objects'];
+        bool detected = objects.contains('person') || objects.contains('bird');
         _logMessages.insert(0, {
-          'pir': objects.contains('person') || objects.contains('bird')
-              ? '1'
-              : '0',
-          'jarak': '-', 
-          'time': time,
-          'mqtt': objects.join(', '),
+          'pir': detected ? '1' : '0',
+          'time': DateTime.fromMillisecondsSinceEpoch(
+            (data['timestamp'] * 1000).toInt(),
+          ).toString(),
+          'mqtt': detected ? 'burung' : '-', // selalu tampil "burung"
         });
       });
     };
@@ -122,7 +119,6 @@ class _MonitoringViewState extends State<MonitoringView>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text("Objek: ${log['mqtt'] ?? '-'}"),
-            Text("Jarak: ${log['jarak']} cm"),
             Text(
               "Waktu: ${log['time']}",
               style: const TextStyle(fontSize: 12, color: Colors.grey),
@@ -210,10 +206,13 @@ class _MonitoringViewState extends State<MonitoringView>
                 style: const TextStyle(fontSize: 16),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    ledCamHidup ? Colors.green.shade600 : Colors.red.shade400,
-                padding:
-                    const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                backgroundColor: ledCamHidup
+                    ? Colors.green.shade600
+                    : Colors.red.shade400,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 14,
+                  horizontal: 20,
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -222,13 +221,18 @@ class _MonitoringViewState extends State<MonitoringView>
             ElevatedButton.icon(
               onPressed: alatHidup ? bunyikanSuara : null,
               icon: const Icon(Icons.volume_up),
-              label: const Text('Bunyikan Suara', style: TextStyle(fontSize: 16)),
+              label: const Text(
+                'Bunyikan Suara',
+                style: TextStyle(fontSize: 16),
+              ),
               style: ElevatedButton.styleFrom(
                 foregroundColor: Colors.white,
                 backgroundColor: const Color.fromARGB(255, 77, 212, 84),
                 disabledBackgroundColor: Colors.grey.shade400,
-                padding:
-                    const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 14,
+                  horizontal: 20,
+                ),
               ),
             ),
             const SizedBox(height: 20),

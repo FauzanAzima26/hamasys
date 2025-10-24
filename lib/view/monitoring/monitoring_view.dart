@@ -1,7 +1,8 @@
-import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:hamasys/services/mqtt_service.dart';
+import 'package:mqtt_client/mqtt_client.dart';
 
 class MonitoringView extends StatefulWidget {
   const MonitoringView({super.key});
@@ -13,25 +14,18 @@ class MonitoringView extends StatefulWidget {
 class _MonitoringViewState extends State<MonitoringView>
     with SingleTickerProviderStateMixin {
   bool alatHidup = false;
+  bool ledCamHidup = false;
 
   late AnimationController _animationController;
   late Animation<Color?> _colorAnimation;
 
-  // Bagian untuk data ThingSpeak
   final List<Map<String, dynamic>> _logMessages = [];
-  late Timer _timer;
-  static const String channelId = "3034607";
-  static const String readApiKey = "83E30R03Y3UOFJK1";
-  static const String writeApiKey = "F37QJQ0FRO2UQ1QM";
-
-  String get readUrl =>
-      "https://api.thingspeak.com/channels/$channelId/feeds.json?api_key=$readApiKey&results=5";
-
-  String get updateUrl => "https://api.thingspeak.com/update";
+  late MqttService _mqttService;
 
   @override
   void initState() {
     super.initState();
+
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
@@ -42,117 +36,65 @@ class _MonitoringViewState extends State<MonitoringView>
       end: Colors.green.shade600,
     ).animate(_animationController);
 
-    // Ambil data tiap 5 detik
-    _timer = Timer.periodic(const Duration(seconds: 5), (_) {
-      fetchThingSpeakData();
-    });
-    fetchThingSpeakData();
+    // MQTT Service
+    _mqttService = MqttService();
+    _mqttService.onMessageReceived = (data) {
+      setState(() {
+        String time = DateTime.fromMillisecondsSinceEpoch(
+          (data['timestamp'] * 1000).toInt(),
+        ).toString();
+        List objects = data['objects'];
+        _logMessages.insert(0, {
+          'pir': objects.contains('person') || objects.contains('bird')
+              ? '1'
+              : '0',
+          'jarak': '-', 
+          'time': time,
+          'mqtt': objects.join(', '),
+        });
+      });
+    };
+    _mqttService.connect();
   }
 
-  /// Kirim perintah ON/OFF ke ThingSpeak
-  Future<void> toggleAlat(bool value) async {
+  void toggleAlat() {
     setState(() {
-      alatHidup = value;
-      if (alatHidup) {
-        _animationController.forward();
-      } else {
-        _animationController.reverse();
-      }
+      alatHidup = !alatHidup;
+      alatHidup
+          ? _animationController.forward()
+          : _animationController.reverse();
     });
 
-    // Kirim update ke ThingSpeak
-    try {
-      final url = "$updateUrl?api_key=$writeApiKey&field2=${alatHidup ? 1 : 0}";
-      final response = await http.get(Uri.parse(url));
+    final payload = {'command': alatHidup ? 'ON' : 'OFF'};
+    _mqttService.client.publishMessage(
+      'esp32cam/command',
+      MqttQos.atMostOnce,
+      MqttClientPayloadBuilder().addUTF8String(jsonEncode(payload)).payload!,
+    );
 
-      if (response.statusCode == 200) {
-        debugPrint("✅ Status alat diubah ke: ${alatHidup ? 'ON' : 'OFF'}");
-      } else {
-        debugPrint("❌ Gagal ubah status alat: ${response.statusCode}");
-      }
-    } catch (e) {
-      debugPrint("⚠ Error kirim status alat: $e");
+    if (kDebugMode) {
+      print('✅ Command sent: ${payload['command']}');
+    }
+  }
+
+  void toggleLedCam() {
+    setState(() => ledCamHidup = !ledCamHidup);
+
+    final payload = {'led': ledCamHidup ? 'ON' : 'OFF'};
+    _mqttService.client.publishMessage(
+      'esp32cam/led',
+      MqttQos.atMostOnce,
+      MqttClientPayloadBuilder().addUTF8String(jsonEncode(payload)).payload!,
+    );
+
+    if (kDebugMode) {
+      print('✅ LED Cam command sent: ${payload['led']}');
     }
   }
 
   void bunyikanSuara() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Suara pengusir hama diaktifkan!')),
-    );
-  }
-
-  Future<void> fetchThingSpeakData() async {
-    try {
-      final response = await http.get(Uri.parse(readUrl));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final feeds = (data['feeds'] ?? []) as List;
-
-        setState(() {
-          _logMessages.clear();
-          for (var feed in feeds.reversed) {
-            String pir1 = feed['field1'] ?? '0';
-            String jarak = feed['field5'] ?? '0';
-            String waktu = feed['created_at'] ?? '';
-
-            _logMessages.add({'pir': pir1, 'jarak': jarak, 'time': waktu});
-          }
-        });
-      } else {
-        debugPrint("Gagal ambil data: ${response.statusCode}");
-      }
-    } catch (e) {
-      debugPrint("Error: $e");
-    }
-  }
-
-  Future<void> resetThingSpeakData() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$updateUrl?api_key=$writeApiKey&field1=0&field5=0'),
-      );
-
-      if (response.statusCode == 200) {
-        if (response.body == '0') {
-          debugPrint("❌ Gagal reset data: Channel tidak update");
-        } else {
-          debugPrint("✅ Data berhasil direset. Entry ID: ${response.body}");
-          fetchThingSpeakData();
-        }
-      } else {
-        debugPrint(
-          "❌ Gagal reset data: ${response.statusCode} - ${response.body}",
-        );
-      }
-    } catch (e) {
-      debugPrint("⚠ Error saat reset data: $e");
-    }
-  }
-
-  void _showResetConfirmation() {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text("Konfirmasi Reset"),
-          content: const Text("Apakah Anda yakin ingin mereset data?"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text("Batal"),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () {
-                Navigator.pop(ctx);
-                resetThingSpeakData();
-              },
-              child: const Text("Reset"),
-            ),
-          ],
-        );
-      },
     );
   }
 
@@ -179,6 +121,7 @@ class _MonitoringViewState extends State<MonitoringView>
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text("Objek: ${log['mqtt'] ?? '-'}"),
             Text("Jarak: ${log['jarak']} cm"),
             Text(
               "Waktu: ${log['time']}",
@@ -192,8 +135,8 @@ class _MonitoringViewState extends State<MonitoringView>
 
   @override
   void dispose() {
-    _timer.cancel();
     _animationController.dispose();
+    _mqttService.disconnect();
     super.dispose();
   }
 
@@ -206,31 +149,19 @@ class _MonitoringViewState extends State<MonitoringView>
         backgroundColor: const Color.fromARGB(255, 77, 212, 84),
         centerTitle: true,
         elevation: 3,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_forever),
-            tooltip: "Reset Data",
-            onPressed: _showResetConfirmation,
-          ),
-        ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Bagian Tombol On/Off IoT
-          AnimatedBuilder(
-            animation: _colorAnimation,
-            builder: (context, child) {
-              return GestureDetector(
-                onTapDown: (_) => _animationController.forward(),
-                onTapUp: (_) => toggleAlat(!alatHidup),
-                onTapCancel: () => _animationController.reverse(),
-                child: AnimatedScale(
-                  scale: alatHidup
-                      ? 1.0
-                      : 1.0, // bisa diubah kalau mau efek tekan
-                  duration: const Duration(milliseconds: 100),
-                  child: Container(
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            // Tombol On/Off Alat
+            AnimatedBuilder(
+              animation: _colorAnimation,
+              builder: (context, child) {
+                return GestureDetector(
+                  onTap: toggleAlat,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
                     width: 120,
                     height: 120,
                     decoration: BoxDecoration(
@@ -244,13 +175,11 @@ class _MonitoringViewState extends State<MonitoringView>
                         end: Alignment.bottomRight,
                       ),
                       boxShadow: [
-                        // Bayangan terang (atas kiri)
                         BoxShadow(
                           color: Colors.white.withOpacity(0.7),
                           offset: const Offset(-6, -6),
                           blurRadius: 8,
                         ),
-                        // Bayangan gelap (bawah kanan)
                         BoxShadow(
                           color: Colors.black.withOpacity(0.3),
                           offset: const Offset(6, 6),
@@ -258,56 +187,78 @@ class _MonitoringViewState extends State<MonitoringView>
                         ),
                       ],
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.power_settings_new,
                       color: Colors.white,
                       size: 50,
                     ),
                   ),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-
-          // Tombol bunyikan suara
-          ElevatedButton(
-            onPressed: alatHidup ? bunyikanSuara : null,
-            style: ElevatedButton.styleFrom(
-              foregroundColor: Colors.white,
-              backgroundColor: const Color.fromARGB(255, 77, 212, 84),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              disabledBackgroundColor: Colors.grey.shade400,
+                );
+              },
             ),
-            child: const Text(
-              'Bunyikan Suara',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-          ),
-          const Divider(height: 32, thickness: 2),
+            const SizedBox(height: 16),
 
-          // Bagian Log
-          const Text(
-            "Log Monitoring Hama Real-Time",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          _logMessages.isEmpty
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Text(
-                      'Menunggu data hama...',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
+            // Tombol LED Cam
+            ElevatedButton.icon(
+              onPressed: toggleLedCam,
+              icon: Icon(
+                ledCamHidup ? Icons.lightbulb : Icons.lightbulb_outline,
+                color: Colors.white,
+              ),
+              label: Text(
+                ledCamHidup ? 'Matikan LED Cam' : 'Nyalakan LED Cam',
+                style: const TextStyle(fontSize: 16),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor:
+                    ledCamHidup ? Colors.green.shade600 : Colors.red.shade400,
+                padding:
+                    const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Tombol Bunyikan Suara
+            ElevatedButton.icon(
+              onPressed: alatHidup ? bunyikanSuara : null,
+              icon: const Icon(Icons.volume_up),
+              label: const Text('Bunyikan Suara', style: TextStyle(fontSize: 16)),
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: const Color.fromARGB(255, 77, 212, 84),
+                disabledBackgroundColor: Colors.grey.shade400,
+                padding:
+                    const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Log MQTT
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "Log Monitoring Hama Real-Time",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            Expanded(
+              child: _logMessages.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'Menunggu data hama...',
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _logMessages.length,
+                      itemBuilder: (context, index) =>
+                          _buildLogItem(_logMessages[index]),
                     ),
-                  ),
-                )
-              : Column(
-                  children: _logMessages
-                      .map((log) => _buildLogItem(log))
-                      .toList(),
-                ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
